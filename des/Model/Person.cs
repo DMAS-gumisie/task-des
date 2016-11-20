@@ -8,6 +8,10 @@ namespace des.Model
         public IList<Person> Contacts { get; private set; }
         public Person LovedOne { get; private set; }
         public Person HatedOne { get; private set; }
+        public int NoOfReceivedMails { get; set; }
+        public Queue<Person> Senders { get; private set; }
+        public double ReposterProbability { get; set; }
+        public int NoOfRepostsPerRecv { get; set; }
 
         private Person()
         {
