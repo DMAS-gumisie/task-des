@@ -43,7 +43,16 @@ namespace des
                         {
                             if (person.Senders.Dequeue() == person.LovedOne)
                             {
-                                //TODO - rand new loved one, old one becomes hated.
+                                person.HatedOne = person.LovedOne;
+                                while (true)
+                                {
+                                    int target = rnd.Next(person.Contacts.Count);
+                                    if (person.Contacts.ToArray()[target] != person.HatedOne)
+                                    {
+                                        person.LovedOne = person.Contacts.ToArray()[target];
+                                        break;
+                                    }
+                                }
                             }
                         }
                         //start sending
