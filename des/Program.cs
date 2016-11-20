@@ -4,6 +4,10 @@
     {
         static void Main(string[] args)
         {
+            System.Console.CancelKeyPress += delegate
+            {
+                System.Console.ReadKey();
+            };
             if (args.Length < 2) return;
 
             var simulation = new Simulation();
@@ -19,6 +23,8 @@
             var scenarioPath = args[1];
             inputParser.ParseScenario(scenarioPath);
             simulation.RunScenario(inputParser.FirstSenderId, inputParser.FirstReceiverId);
+
+
         }
     }
 }

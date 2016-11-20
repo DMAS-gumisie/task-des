@@ -22,21 +22,39 @@ namespace des
 
         public void RunScenario(int firstSenderId, int firstReceiverId)
         {
+            int eventId = 0;
+            Random rnd = new Random(DateTime.UtcNow.Millisecond);
             //init persons
             foreach (Model.Person person in Group.Members)
             {
-                person.ReposterProbability = person.Contacts.Count / Group.Members.Count;
+                person.ReposterProbability = (double)person.Contacts.Count / (double)Group.Members.Count;
                 person.NoOfRepostsPerRecv = (person.Contacts.Count * person.Contacts.Count) / Group.Members.Count;
-                //TODO - init hated and loved ones
+                int target = rnd.Next(1, person.Contacts.Count + 1);
+                //init loved and hated one
+                person.LovedOne = Group.Members.First(per => per.Id == target);
+                //we don't believe in love-hate relationships
+                while (true)
+                {
+                    target = rnd.Next(1, person.Contacts.Count + 1);
+                    if (person.LovedOne != Group.Members.First(per => per.Id == target))
+                    {
+                        person.HatedOne = Group.Members.First(per => per.Id == target);
+                        break;
+                    }
+                }
             }
-            //TODO - send first mail
-
-            int eventId = 0;
-            Random rnd = new Random();
+            //first mail
+            Group.Members.First(per => per.Id == firstReceiverId).NoOfReceivedMails = 1;
+            Person firstSender = Group.Members.First(per => per.Id == firstSenderId);
+            Group.Members.First(per => per.Id == firstReceiverId).Senders.Enqueue(firstSender);
+            //"main" loop
             do
             {
                 foreach (Model.Person person in Group.Members)
                 {
+                    //sleep, improves behavior of random no generator.
+                    System.Threading.Thread.Sleep(rnd.Next(50));
+                    //handle rejection
                     while (person.NoOfReceivedMails > 0)
                     {
                         if (person.Senders.Count > 0)
@@ -46,8 +64,8 @@ namespace des
                                 person.HatedOne = person.LovedOne;
                                 while (true)
                                 {
-                                    int target = rnd.Next(person.Contacts.Count);
-                                    if (person.Contacts.ToArray()[target] != person.HatedOne)
+                                    int target = rnd.Next(1, person.Contacts.Count + 1);
+                                    if (Group.Members.First(per => per.Id == target) != person.HatedOne)
                                     {
                                         person.LovedOne = person.Contacts.ToArray()[target];
                                         break;
@@ -56,7 +74,8 @@ namespace des
                             }
                         }
                         //start sending
-                        if (person.ReposterProbability > rnd.NextDouble() && person.NoOfRepostsPerRecv > 0)
+                        double tmpRnd = rnd.NextDouble();
+                        if (person.ReposterProbability > tmpRnd && person.NoOfRepostsPerRecv > 0)
                         {
                             int noOfRepostsLeft = person.NoOfRepostsPerRecv;
                             //send to hated one
@@ -69,12 +88,12 @@ namespace des
                             while (noOfRepostsLeft > 0)
                             {
                                 //this assumes mail can be reposted multiple times to one person - this not disallowed
-                                int target = rnd.Next(person.Contacts.Count);
-                                if (person.Contacts.ToArray()[target] != person.LovedOne)
+                                int target = rnd.Next(1, person.Contacts.Count + 1);
+                                if (Group.Members.First(per => per.Id == target) != person.LovedOne)
                                 {
-                                    person.Contacts.ToArray()[target].NoOfReceivedMails++;
-                                    person.Contacts.ToArray()[target].Senders.Enqueue(person);
-                                    System.Console.WriteLine(eventId.ToString() + " " + person.Id.ToString() + " " + person.Contacts.ToArray()[target].Id.ToString());
+                                    Group.Members.First(per => per.Id == target).NoOfReceivedMails++;
+                                    Group.Members.First(per => per.Id == target).Senders.Enqueue(person);
+                                    System.Console.WriteLine(eventId.ToString() + " " + person.Id.ToString() + " " + Group.Members.First(per => per.Id == target).Id.ToString());
                                     eventId++;
                                     noOfRepostsLeft--;
                                 }
@@ -88,7 +107,7 @@ namespace des
                         person.NoOfReceivedMails--;
                     }
                 }
-                //throw new NotImplementedException();
+                
             } while (true);
         }
 
