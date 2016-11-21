@@ -6,7 +6,7 @@
         {
             System.Console.CancelKeyPress += delegate
             {
-                System.Console.ReadKey();
+                //System.Console.ReadKey();
             };
             if (args.Length < 2) return;
 
@@ -23,8 +23,6 @@
             var scenarioPath = args[1];
             inputParser.ParseScenario(scenarioPath);
             simulation.RunScenario(inputParser.FirstSenderId, inputParser.FirstReceiverId);
-
-
         }
     }
 }

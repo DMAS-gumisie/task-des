@@ -7,7 +7,10 @@ namespace des
 {
     public class Simulation
     {
+        private readonly Random rnd = new Random(DateTime.UtcNow.Millisecond);
         private readonly Group Group = new Group();
+        private int eventId = 0;
+
         public void AddPerson(int personId, List<int> contactsIds)
         {
             var person = GetOrCreatePerson(personId);
@@ -22,98 +25,96 @@ namespace des
 
         public void RunScenario(int firstSenderId, int firstReceiverId)
         {
-            int eventId = 0;
-            Random rnd = new Random(DateTime.UtcNow.Millisecond);
-            //init persons
-            foreach (Model.Person person in Group.Members)
-            {
-                person.ReposterProbability = (double)person.Contacts.Count / (double)Group.Members.Count;
-                person.NoOfRepostsPerRecv = (person.Contacts.Count * person.Contacts.Count) / Group.Members.Count;
-                int target = rnd.Next(1, person.Contacts.Count + 1);
-                //init loved and hated one
-                person.LovedOne = Group.Members.First(per => per.Id == target);
-                //we don't believe in love-hate relationships
-                while (true)
-                {
-                    target = rnd.Next(1, person.Contacts.Count + 1);
-                    if (person.LovedOne != Group.Members.First(per => per.Id == target))
-                    {
-                        person.HatedOne = Group.Members.First(per => per.Id == target);
-                        break;
-                    }
-                }
-            }
-            //first mail
-            Group.Members.First(per => per.Id == firstReceiverId).NoOfReceivedMails = 1;
-            Person firstSender = Group.Members.First(per => per.Id == firstSenderId);
-            Group.Members.First(per => per.Id == firstReceiverId).Senders.Enqueue(firstSender);
-            //"main" loop
+            // init persons
+            InitPersons();
+
+            // send first mail based on the scenario
+            var firstSender = GetPerson(firstSenderId);
+            var firstReceiver = GetPerson(firstReceiverId);
+            firstReceiver.NoOfReceivedMails = 1;
+            firstReceiver.Senders.Enqueue(firstSender);
+
+            // "main" loop
             do
             {
-                foreach (Model.Person person in Group.Members)
+                foreach (var person in Group.Members)
                 {
-                    //sleep, improves behavior of random no generator.
+                    // sleep, improves behavior of random no generator
                     System.Threading.Thread.Sleep(rnd.Next(50));
-                    //handle rejection
+
+                    // handle received emails
                     while (person.NoOfReceivedMails > 0)
                     {
-                        if (person.Senders.Count > 0)
+                        // update hated and loved people if needed
+                        if (person.Senders.Any() && person.Senders.Dequeue() == person.LovedOne) // FIXME: shouldn't work like that
                         {
-                            if (person.Senders.Dequeue() == person.LovedOne)
-                            {
-                                person.HatedOne = person.LovedOne;
-                                while (true)
-                                {
-                                    int target = rnd.Next(1, person.Contacts.Count + 1);
-                                    if (Group.Members.First(per => per.Id == target) != person.HatedOne)
-                                    {
-                                        person.LovedOne = person.Contacts.ToArray()[target];
-                                        break;
-                                    }
-                                }
-                            }
+                            person.HatedOne = person.LovedOne;
+                            var lovedCandidates = person.Contacts.Except(person.HatedOne);
+                            person.LovedOne = lovedCandidates.Random(rnd);
                         }
-                        //start sending
+
+                        // send to other people
                         double tmpRnd = rnd.NextDouble();
                         if (person.ReposterProbability > tmpRnd && person.NoOfRepostsPerRecv > 0)
                         {
                             int noOfRepostsLeft = person.NoOfRepostsPerRecv;
-                            //send to hated one
-                            person.HatedOne.NoOfReceivedMails++;
-                            person.HatedOne.Senders.Enqueue(person);
-                            System.Console.WriteLine(eventId.ToString() + " " + person.Id.ToString() + " " + person.HatedOne.Id.ToString());
-                            eventId++;
+
+                            // always send to hated one
+                            Send(person, person.HatedOne);
                             noOfRepostsLeft--;
-                            //more reposts
-                            while (noOfRepostsLeft > 0)
+
+                            // more reposts
+                            var notLovedContacts = person.Contacts.Except(person.LovedOne).ToList();
+                            while (noOfRepostsLeft > 0 && notLovedContacts.Any())
                             {
-                                //this assumes mail can be reposted multiple times to one person - this not disallowed
-                                int target = rnd.Next(1, person.Contacts.Count + 1);
-                                if (Group.Members.First(per => per.Id == target) != person.LovedOne)
-                                {
-                                    Group.Members.First(per => per.Id == target).NoOfReceivedMails++;
-                                    Group.Members.First(per => per.Id == target).Senders.Enqueue(person);
-                                    System.Console.WriteLine(eventId.ToString() + " " + person.Id.ToString() + " " + Group.Members.First(per => per.Id == target).Id.ToString());
-                                    eventId++;
-                                    noOfRepostsLeft--;
-                                }
+                                var target = notLovedContacts.Random(rnd);
+                                Send(person, target);
+                                noOfRepostsLeft--;
+                                notLovedContacts.Remove(target);
                             }
                         }
                         else
                         {
-                            System.Console.WriteLine(eventId.ToString() + " " + person.Id.ToString() + " !!!ignored !!!");
+                            Console.WriteLine("{0} {1} {2}", eventId, person.Id, "!!! ignored !!!");
                             eventId++;
                         }
+
                         person.NoOfReceivedMails--;
                     }
                 }
-                
             } while (true);
+        }
+
+        private void InitPersons()
+        {
+            foreach (var person in Group.Members)
+            {
+                person.ReposterProbability = (double)person.Contacts.Count / Group.Members.Count;
+                person.NoOfRepostsPerRecv = (person.Contacts.Count * person.Contacts.Count) / Group.Members.Count;
+
+                // init loved and hated one
+                person.LovedOne = person.Contacts.Random(rnd);
+                var hatedCandidates = person.Contacts.Except(person.LovedOne);
+                person.HatedOne = hatedCandidates.Random(rnd);
+            }
+        }
+
+        private void Send(Person from, Person to)
+        {
+            to.NoOfReceivedMails++;
+            to.Senders.Enqueue(from);
+            Console.WriteLine("{0} {1} {2}", eventId, from.Id, to.Id);
+            eventId++;
+        }
+
+        private Person GetPerson(int id)
+        {
+            return Group.Members.FirstOrDefault(p => p.Id == id);
         }
 
         private Person GetOrCreatePerson(int id)
         {
-            var person = Group.Members.FirstOrDefault(p => p.Id == id);
+            var person = GetPerson(id);
             if (person == null)
             {
                 person = new Person(id);

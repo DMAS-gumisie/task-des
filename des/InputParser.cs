@@ -51,7 +51,7 @@ namespace des
             return new Tuple<int, List<int>>(person, contacts);
         }
 
-        public IEnumerable<string> SplitToLines(string input)
+        private IEnumerable<string> SplitToLines(string input)
         {
             if (input == null) yield break;
 

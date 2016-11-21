@@ -43,6 +43,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EnumerableUtils.cs" />
     <Compile Include="InputParser.cs" />
     <Compile Include="Simulation.cs" />
     <Compile Include="Model\Group.cs" />
