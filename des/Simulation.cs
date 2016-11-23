@@ -46,7 +46,7 @@ namespace des
                     while (person.NoOfReceivedMails > 0)
                     {
                         // update hated and loved people if needed
-                        if (person.Senders.Any() && person.Senders.Dequeue() == person.LovedOne) // FIXME: shouldn't work like that
+                        if (person.Senders.Any() && person.Senders.Dequeue() == person.LovedOne)
                         {
                             person.HatedOne = person.LovedOne;
                             var lovedCandidates = person.Contacts.Except(person.HatedOne);

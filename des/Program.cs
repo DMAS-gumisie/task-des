@@ -8,7 +8,7 @@
             {
                 //System.Console.ReadKey();
             };
-            if (args.Length < 2) return;
+            //if (args.Length < 2) return;
 
             var simulation = new Simulation();
             var inputParser = new InputParser();
